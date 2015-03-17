@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 
 #include "network.h"
+#include "protocol.h"
 
 void usage(const char *name)
 {
@@ -59,19 +60,15 @@ int main(int argc, char *argv[])
 	const char *srv_file;
 	const char *local_file;
 
-	ssize_t nsend;
-
 	parse_args(argc, argv,
 		   &srv_addr, &srv_port,
 		   &srv_file, &local_file);
-	printf("%s %s %s %s\n", srv_addr, srv_port, srv_file,
-	       local_file);
+//	printf("%s %s %s %s\n", srv_addr, srv_port, srv_file,
+//	       local_file);
 
 	sock = open_socket(srv_addr, srv_port, AF_UNSPEC, 0, connect);
 
-	const char *message = "Hello, World!\n";
-	nsend = send(sock, message, strlen(message) + 1, 0);
-	printf("%ld\n", nsend);
+	send_read(sock, srv_file);
 
 	close(sock);
 

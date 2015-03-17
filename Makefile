@@ -4,7 +4,7 @@ LDFLAGS +=
 
 all: tftp tftpd
 
-tftp: tftp.o network.o
+tftp: tftp.o network.o protocol.o
 
 tftpd: tftpd.o network.o
 
