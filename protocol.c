@@ -23,9 +23,7 @@ bool send_read(int sock, const char *filename)
 	len += sprintf(buffer + len, "octet");
 	buffer[len++] = '\0';
 
-	printf("%zu\n", len);
 	nsend = send(sock, buffer, len, 0);
-	printf("%zd\n", nsend);
 	if (nsend < 0) {
 		fprintf(stderr, "Unable to send read packet: %s",
 				strerror(errno));

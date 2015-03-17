@@ -63,8 +63,8 @@ int main(int argc, char *argv[])
 	parse_args(argc, argv,
 		   &srv_addr, &srv_port,
 		   &srv_file, &local_file);
-	printf("%s %s %s %s\n", srv_addr, srv_port, srv_file,
-	       local_file);
+//	printf("%s %s %s %s\n", srv_addr, srv_port, srv_file,
+//	       local_file);
 
 	sock = open_socket(srv_addr, srv_port, AF_UNSPEC, 0, connect);
 
