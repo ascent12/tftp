@@ -61,7 +61,13 @@ int main(int argc, char *argv[])
 
 		client_sock = wait_connection(srv_sock, buffer, &nread);
 
-		printf("%ld:%.512s", nread, buffer);
+		printf("Recieved Packet of size %ld\n", nread);
+
+		for (int i = 0; i < nread; ++i)
+			putchar(buffer[i] == '\0' ? '_' : buffer[i]);
+		putchar('\n');
+
+		fflush(stdout);
 
 		close(client_sock);
 	}
