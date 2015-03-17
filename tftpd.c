@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "network.h"
+#include "protocol.h"
 
 #define PACKET_SIZE 512
 
@@ -29,14 +30,13 @@ bool validate_filename(const char *filename)
 
 int find_file(const char *filename)
 {
-	int fd;
+	int fd = -1;
 	DIR *tftp;
 	struct dirent *d;
 
 	tftp = opendir("./Tftp");
 	if (tftp == NULL) {
-		fprintf(stderr, "Unable to open tftp directory: %s\n",
-				strerror(errno));
+		perror("opendir");
 		return -1;
 	}
 
@@ -44,17 +44,14 @@ int find_file(const char *filename)
 		if (strcmp(d->d_name, filename) == 0) {
 			fd = openat(dirfd(tftp), d->d_name, O_RDONLY);
 			if (fd == -1)
-				fprintf(stderr, "Could not open %s: %s\n",
-						d->d_name, strerror(errno));
-
+				perror("openat");
 			errno = 0;
 			break;
 		}
 	}
 
 	if (errno != 0) {
-		fprintf(stderr, "Unable to read tftp directory: %s\n",
-				strerror(errno));
+		perror("readdir");
 	}
 
 	closedir(tftp);
@@ -62,38 +59,46 @@ int find_file(const char *filename)
 	return fd;
 }
 
-int wait_connection(int srv_sock, char *buffer, ssize_t *nread)
+bool wait_for_connection(int sock, char *buffer, ssize_t *nread)
 {
-	int client_sock;
 	struct sockaddr_storage addr;
 	socklen_t addr_len = sizeof addr;
 
 	memset(&addr, 0, sizeof addr);
 
-	*nread = recvfrom(srv_sock, buffer, PACKET_SIZE, 0,
+	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &no_timeout, sizeof no_timeout);
+
+	*nread = recvfrom(sock, buffer, PACKET_SIZE, 0,
 			(struct sockaddr *)&addr, &addr_len);
-
-	if (*nread == -1)
-		return -1;
-
-	client_sock = socket(addr.ss_family, SOCK_DGRAM, 0);
-	if (client_sock == -1) {
-		fprintf(stderr, "Unable to create socket: %s\n", strerror(errno));
-		return -1;
+	if (*nread == -1) {
+		perror("wait_for_connection recvfrom");
+		return false;
 	}
 
-	if (connect(client_sock, (struct sockaddr *)&addr, addr_len) == -1) {
-		fprintf(stderr, "Unable to create socket connection: %s\n", strerror(errno));
-		close(client_sock);
-		return -1;
+	if (connect(sock, (struct sockaddr *)&addr, addr_len) == -1) {
+		perror("wait_for_connection connect");
+		return false;
 	}
 
-	return client_sock;
+	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout);
+
+	return true;
+}
+
+void disconnect(int sock)
+{
+	struct sockaddr_in6 addr;
+
+	memset(&addr, 0, sizeof addr);
+	addr.sin6_family = AF_UNSPEC;
+
+	if (connect(sock, (struct sockaddr *)&addr, sizeof addr) == -1)
+		perror("disconnect");
 }
 
 int main(int argc, char *argv[])
 {
-	int srv_sock;
+	int sock;
 	int fd;
 
 	if (argc > 2) {
@@ -103,29 +108,85 @@ int main(int argc, char *argv[])
 
 	fd = find_file("hello");
 
-	srv_sock = open_socket(NULL, argc == 2 ? argv[1] : "69",
+	sock = open_socket(NULL, argc == 2 ? argv[1] : "69",
 			AF_INET6, AI_PASSIVE | AI_V4MAPPED, bind);
 
 	while (1) {
-		int client_sock;
 		ssize_t nread = 0;
 		char buffer[PACKET_SIZE];
+		int fd;
 
-		memset(buffer, 0, sizeof buffer);
+		if (!wait_for_connection(sock, buffer, &nread))
+			continue;
 
-		client_sock = wait_connection(srv_sock, buffer, &nread);
+		switch (packet_op(buffer)) {
+		case RRQ:
+			if (strcmp(packet_mode(buffer), "octet") != 0) {
+				send_error(sock, 4, "Illegal TFTP operation.");
+				goto error;
+			}
 
-		printf("Recieved Packet of size %ld\n", nread);
+			if (!validate_filename(packet_filename(buffer))) {
+				send_error(sock, 1, "File not found.");
+				goto error;
+			}
 
-		for (int i = 0; i < nread; ++i)
-			putchar(buffer[i] == '\0' ? '_' : buffer[i]);
-		putchar('\n');
+			fd = find_file(packet_filename(buffer));
+			if (fd == -1) {
+				send_error(sock, 1, "File not found.");
+				goto error;
+			}
 
-		fflush(stdout);
+			break;
+		case WRQ:
+			send_error(sock, 2, "Access violation.");
+			goto error;
+		default:
+			goto error;
+		}
 
-		close(client_sock);
+		char data[MAX_DATA_SIZE];
+		ssize_t fread;
+		uint16_t block_seq = 1;
+
+		while ((fread = read(fd, data, sizeof data)) > 0) {
+retry:
+			send_data(sock, block_seq, data, fread);
+
+			nread = recv(sock, buffer, sizeof buffer, 0);
+			if (nread == -1) {
+				perror("nread");
+				goto end;
+			}
+
+			switch (packet_op(buffer)) {
+			case ACK:
+				;
+				uint16_t block_id = packet_block_id(buffer);
+				if (block_id == block_seq) {
+					++block_seq;
+				} else if (block_id == block_seq - 1) {
+					goto retry;
+				} else {
+					goto end;
+				}
+
+				break;
+			default:
+				break;
+			}
+
+			if (fread < MAX_DATA_SIZE)
+				break;
+		}
+
+end:
+		close(fd);
+
+error:
+		disconnect(sock);
 	}
 
 	close(fd);
-	close(srv_sock);
+	close(sock);
 }
