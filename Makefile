@@ -1,6 +1,8 @@
-CFLAGS += -std=gnu99 -Wall -Wextra
-CPPFLAGS +=
+CFLAGS += -std=c99 -Wall -Wextra
+CPPFLAGS += -D_POSIX_C_SOURCE=200809L
 LDFLAGS +=
+
+.PHONY: all clean
 
 all: tftp tftpd
 

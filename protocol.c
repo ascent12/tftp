@@ -11,7 +11,7 @@
 
 bool send_read(int sock, const char *filename)
 {
-	char buffer[PACKET_SIZE];
+	char buffer[PKT_SIZE];
 	size_t len = 0;
 	ssize_t nsend;
 
@@ -56,7 +56,7 @@ bool send_ack(int sock, uint16_t block_id)
 
 bool send_error(int sock, uint16_t error_code, const char *error_msg)
 {
-	char buffer[PACKET_SIZE];
+	char buffer[PKT_SIZE];
 	size_t len = 0;
 	ssize_t nsend;
 
@@ -81,7 +81,7 @@ bool send_error(int sock, uint16_t error_code, const char *error_msg)
 
 bool send_data(int sock, uint16_t block_id, const char *data, size_t data_len)
 {
-	char buffer[PACKET_SIZE];
+	char buffer[PKT_SIZE];
 	size_t len = 0;
 	ssize_t nsend;
 
@@ -106,23 +106,23 @@ bool send_data(int sock, uint16_t block_id, const char *data, size_t data_len)
 	return true;
 }
 
-enum packet_type packet_op(const char *buffer)
+int pkt_op(const char *buffer)
 {
 	if (strncmp(buffer, "01", 2) == 0)
-		return RRQ;
+		return PKT_RRQ;
 	else if (strncmp(buffer, "02", 2) == 0)
-		return WRQ;
+		return PKT_WRQ;
 	else if (strncmp(buffer, "03", 2) == 0)
-		return DATA;
+		return PKT_DATA;
 	else if (strncmp(buffer, "04", 2) == 0)
-		return ACK;
+		return PKT_ACK;
 	else if (strncmp(buffer, "05", 2) == 0)
-		return ERROR;
+		return PKT_ERROR;
 	else
-		return NONE;
+		return PKT_NONE;
 }
 
-uint16_t packet_block_id(const char *buffer)
+uint16_t pkt_blk_id(const char *buffer)
 {
 	uint16_t block_id;
 	
@@ -131,17 +131,17 @@ uint16_t packet_block_id(const char *buffer)
 	return ntohs(block_id);
 }
 
-const char *packet_data(const char *buffer)
+const char *pkt_data(const char *buffer)
 {
 	return buffer + 4;
 }
 
-const char *packet_filename(const char *buffer)
+const char *pkt_filename(const char *buffer)
 {
 	return buffer + 2;
 }
 
-const char *packet_mode(const char *buffer)
+const char *pkt_mode(const char *buffer)
 {
 	while (*buffer++ != '\0');
 

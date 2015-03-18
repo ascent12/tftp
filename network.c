@@ -8,13 +8,15 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "network.h"
+
 int open_socket(const char *addr,
 		const char *port,
 		int family, int flags,
 		int (*fn)(int sockfd, const struct sockaddr *addr,
 			socklen_t addrlen))
 {
-	int sock;
+	int sock = -1;
 	int status;
 	struct addrinfo hints;
 	struct addrinfo *res;

@@ -14,9 +14,7 @@
 #include "network.h"
 #include "protocol.h"
 
-#define PACKET_SIZE 512
-
-bool validate_filename(const char *filename)
+static bool validate_filename(const char *filename)
 {
 	if (strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0)
 		return false;
@@ -28,11 +26,11 @@ bool validate_filename(const char *filename)
 	return true;
 }
 
-int find_file(const char *filename)
+static int find_file(const char *filename)
 {
 	int fd = -1;
 	DIR *tftp;
-	struct dirent *d;
+	struct dirent *d = NULL;
 
 	tftp = opendir("./Tftp");
 	if (tftp == NULL) {
@@ -59,7 +57,7 @@ int find_file(const char *filename)
 	return fd;
 }
 
-bool wait_for_connection(int sock, char *buffer, ssize_t *nread)
+static bool wait_for_connection(int sock, char *buffer, ssize_t *nread)
 {
 	struct sockaddr_storage addr;
 	socklen_t addr_len = sizeof addr;
@@ -68,7 +66,7 @@ bool wait_for_connection(int sock, char *buffer, ssize_t *nread)
 
 	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &no_timeout, sizeof no_timeout);
 
-	*nread = recvfrom(sock, buffer, PACKET_SIZE, 0,
+	*nread = recvfrom(sock, buffer, PKT_SIZE, 0,
 			(struct sockaddr *)&addr, &addr_len);
 	if (*nread == -1) {
 		perror("wait_for_connection recvfrom");
@@ -85,7 +83,7 @@ bool wait_for_connection(int sock, char *buffer, ssize_t *nread)
 	return true;
 }
 
-void disconnect(int sock)
+static void disconnect(int sock)
 {
 	struct sockaddr_in6 addr;
 
@@ -96,49 +94,81 @@ void disconnect(int sock)
 		perror("disconnect");
 }
 
+static void check_other_connections(int sock)
+{
+	char buffer;
+	struct sockaddr_storage addr;
+	socklen_t addr_len = sizeof addr;
+	ssize_t nread;
+
+	memset(&addr, 0, sizeof addr);
+
+//	printf("check_other_connections entered. FD: %d\n", sock);
+
+	if (sock == -1)
+		return;
+
+	/* Error checking isn't important, because it doesn't matter if it fails */
+	if ((nread = recvfrom(sock, &buffer, sizeof buffer, MSG_DONTWAIT,
+			(struct sockaddr *)&addr, &addr_len)) > 0) {
+		const char error_msg[] = "05\x00\x05Unknown transfer ID.";
+
+		sendto(sock, error_msg, sizeof error_msg, 0,
+			(struct sockaddr *)&addr, addr_len);
+	}
+
+}
+
+	
+
 int main(int argc, char *argv[])
 {
 	int sock;
-	int fd;
+	int err_sock;
 
 	if (argc > 2) {
 		fprintf(stderr, "Usage: %s [port]\n", argv[0]);
 		return EXIT_FAILURE;
 	}
 
-	fd = find_file("hello");
-
 	sock = open_socket(NULL, argc == 2 ? argv[1] : "69",
 			AF_INET6, AI_PASSIVE | AI_V4MAPPED, bind);
 
+	err_sock = dup(sock);
+	if (err_sock == -1)
+		/* This is a non-fatal error
+		 * We won't reply to non-connected people
+		 */
+		perror("dup");
+
 	while (1) {
 		ssize_t nread = 0;
-		char buffer[PACKET_SIZE];
+		char buffer[PKT_SIZE];
 		int fd;
 
 		if (!wait_for_connection(sock, buffer, &nread))
 			continue;
 
-		switch (packet_op(buffer)) {
-		case RRQ:
-			if (strcmp(packet_mode(buffer), "octet") != 0) {
+		switch (pkt_op(buffer)) {
+		case PKT_RRQ:
+			if (strcmp(pkt_mode(buffer), "octet") != 0) {
 				send_error(sock, 4, "Illegal TFTP operation.");
 				goto error;
 			}
 
-			if (!validate_filename(packet_filename(buffer))) {
+			if (!validate_filename(pkt_filename(buffer))) {
 				send_error(sock, 1, "File not found.");
 				goto error;
 			}
 
-			fd = find_file(packet_filename(buffer));
+			fd = find_file(pkt_filename(buffer));
 			if (fd == -1) {
 				send_error(sock, 1, "File not found.");
 				goto error;
 			}
 
 			break;
-		case WRQ:
+		case PKT_WRQ:
 			send_error(sock, 2, "Access violation.");
 			goto error;
 		default:
@@ -159,10 +189,12 @@ retry:
 				goto end;
 			}
 
-			switch (packet_op(buffer)) {
-			case ACK:
+			check_other_connections(err_sock);
+
+			switch (pkt_op(buffer)) {
+			case PKT_ACK:
 				;
-				uint16_t block_id = packet_block_id(buffer);
+				uint16_t block_id = pkt_blk_id(buffer);
 				if (block_id == block_seq) {
 					++block_seq;
 				} else if (block_id == block_seq - 1) {
@@ -173,7 +205,8 @@ retry:
 
 				break;
 			default:
-				break;
+				printf("Invalid packet type\n");
+				continue;
 			}
 
 			if (fread < MAX_DATA_SIZE)
@@ -187,6 +220,5 @@ error:
 		disconnect(sock);
 	}
 
-	close(fd);
-	close(sock);
+	shutdown(sock, SHUT_RDWR);
 }
