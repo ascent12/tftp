@@ -71,10 +71,6 @@ static bool wait_for_connection(int sock, char *buffer)
 		return false;
 	}
 
-	for (int i = 0; i < PKT_SIZE; ++i)
-		printf("%c", buffer[i] == '\0' ? '_' : buffer[i]);
-	fflush(stdout);
-
 	if (connect(sock, (struct sockaddr *)&addr, addr_len) == -1) {
 		perror("connect");
 		return false;
@@ -98,10 +94,8 @@ static void disconnect(int sock)
 static bool wait_for_ack(int sock, char *buffer)
 {
 	if (recv(sock, buffer, PKT_SIZE, 0) == -1) {
-		if (errno != EAGAIN && errno != EWOULDBLOCK) {
-			printf("TRIP2\n");
+		if (errno != EAGAIN && errno != EWOULDBLOCK)
 			perror("recv");
-		}
 
 		return false;
 	}
@@ -164,7 +158,6 @@ static void handle_connection(int sock, char *buffer)
 	}
 
 	if (strcmp(pkt_mode(buffer), "octet") != 0) {
-		printf("TRIP\n");
 		send_error(sock, 4, "Illegal TFTP operation.");
 		return;
 	}
