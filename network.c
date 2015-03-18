@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,20 +18,18 @@ int open_socket(const char *addr,
 			socklen_t addrlen))
 {
 	int sock = -1;
-	int status;
-	struct addrinfo hints;
+	struct addrinfo hints = {0};
 	struct addrinfo *res;
 	struct addrinfo *p;
 
-	memset(&hints, 0, sizeof hints);
 	hints.ai_family = family;
 	hints.ai_socktype = SOCK_DGRAM;
 	hints.ai_flags = flags;
 
-	status = getaddrinfo(addr, port, &hints, &res);
+	int status = getaddrinfo(addr, port, &hints, &res);
 	if (status != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
-		exit(EXIT_FAILURE);
+		return -1;
 	}
 
 	for (p = res; p != NULL; p = p->ai_next) {
@@ -45,11 +44,34 @@ int open_socket(const char *addr,
 	}
 
 	if (p == NULL) {
-		fprintf(stderr, "Could not connect\n");
-		exit(EXIT_FAILURE);
+		perror("open_socket");
+		sock = -1;
 	}
 
 	freeaddrinfo(res);
 
 	return sock;
 }
+
+static const struct timeval timeout = { .tv_sec = 5, .tv_usec = 0};
+bool set_timeout(int sock)
+{
+	if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout)) {
+		perror("setsockopt");
+		return false;
+	}
+
+	return true;
+}
+
+static const struct timeval no_timeout = { .tv_sec = 0, .tv_usec = 0};
+bool remove_timeout(int sock)
+{
+	if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &no_timeout, sizeof no_timeout)) {
+		perror("setsockopt");
+		return false;
+	}
+
+	return true;
+}
+
