@@ -11,7 +11,7 @@
 
 void send_read(int sock, const char *filename)
 {
-	char buffer[PKT_SIZE] = {'0','1'};
+	char buffer[PKT_SIZE] = {0,1};
 	size_t len = 2;
 
 	len += sprintf(buffer + len, "%.503s", filename);
@@ -26,7 +26,7 @@ void send_read(int sock, const char *filename)
 
 void send_ack(int sock, uint16_t block_id)
 {
-	char buffer[4] = {'0','4'};
+	char buffer[4] = {0,4};
 
 	block_id = htons(block_id);
 	memcpy(buffer + 2, &block_id, sizeof block_id);
@@ -37,7 +37,7 @@ void send_ack(int sock, uint16_t block_id)
 
 void send_error(int sock, uint16_t error_code, const char *error_msg)
 {
-	char buffer[PKT_SIZE] = {'0','5'};
+	char buffer[PKT_SIZE] = {0,5};
 	size_t len = 4;
 
 	error_code = htons(error_code);
@@ -52,7 +52,7 @@ void send_error(int sock, uint16_t error_code, const char *error_msg)
 
 void send_data(int sock, uint16_t block_id, const char *data, size_t data_len)
 {
-	char buffer[PKT_SIZE] = {'0','3'};
+	char buffer[PKT_SIZE] = {0,3};
 
 	block_id = htons(block_id);
 	memcpy(buffer + 2, &block_id, sizeof block_id);
@@ -66,18 +66,24 @@ void send_data(int sock, uint16_t block_id, const char *data, size_t data_len)
 
 int pkt_op(const char *buffer)
 {
-	if (strncmp(buffer, "01", 2) == 0)
+	uint16_t opcode;
+
+	memcpy(&opcode, buffer, sizeof opcode);
+
+	switch (ntohs(opcode)) {
+	case 1:
 		return PKT_RRQ;
-	else if (strncmp(buffer, "02", 2) == 0)
+	case 2:
 		return PKT_WRQ;
-	else if (strncmp(buffer, "03", 2) == 0)
+	case 3:
 		return PKT_DATA;
-	else if (strncmp(buffer, "04", 2) == 0)
+	case 4:
 		return PKT_ACK;
-	else if (strncmp(buffer, "05", 2) == 0)
+	case 5:
 		return PKT_ERROR;
-	else
+	default:
 		return PKT_NONE;
+	}
 }
 
 uint16_t pkt_blk_id(const char *buffer)
@@ -101,6 +107,9 @@ const char *pkt_filename(const char *buffer)
 
 const char *pkt_mode(const char *buffer)
 {
+	/* Skip the opcode */
+	buffer += 2;
+
 	while (*buffer++ != '\0');
 
 	return buffer;

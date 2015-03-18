@@ -3,8 +3,10 @@
 
 #include <stdint.h>
 
-#define PKT_SIZE 512
+#define PKT_SIZE 516
 #define MAX_DATA_SIZE (PKT_SIZE - 4)
+
+#define MAX_ATTEMPTS 5
 
 #define PKT_NONE 0
 #define PKT_RRQ 1

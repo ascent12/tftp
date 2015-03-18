@@ -63,11 +63,17 @@ static bool wait_for_connection(int sock, char *buffer)
 	if (!remove_timeout(sock))
 		return false;
 
+	memset(buffer, 0, PKT_SIZE);
+
 	if (recvfrom(sock, buffer, PKT_SIZE, 0,
 			(struct sockaddr *)&addr, &addr_len) == -1) {
 		perror("recvfrom");
 		return false;
 	}
+
+	for (int i = 0; i < PKT_SIZE; ++i)
+		printf("%c", buffer[i] == '\0' ? '_' : buffer[i]);
+	fflush(stdout);
 
 	if (connect(sock, (struct sockaddr *)&addr, addr_len) == -1) {
 		perror("connect");
@@ -92,10 +98,10 @@ static void disconnect(int sock)
 static bool wait_for_ack(int sock, char *buffer)
 {
 	if (recv(sock, buffer, PKT_SIZE, 0) == -1) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
-			fprintf(stderr, "recv: Timeout reached\n");
-		else
+		if (errno != EAGAIN && errno != EWOULDBLOCK) {
+			printf("TRIP2\n");
 			perror("recv");
+		}
 
 		return false;
 	}
@@ -114,13 +120,20 @@ static void transfer_file(int sock, int fd, char *buffer)
 	ssize_t fread;
 	uint16_t block_seq = 1;
 
-	while ((fread = read(fd, data, sizeof data)) > 0) {
-retry:
-		send_data(sock, block_seq, data, fread);
+	while ((fread = read(fd, data, sizeof data)) >= 0) {
+		int i;
 
-		if (!wait_for_ack(sock, buffer))
+retry:
+		i = 0;
+		do
+			send_data(sock, block_seq, data, fread);
+		while (!wait_for_ack(sock, buffer) && i++ < MAX_ATTEMPTS);
+
+		/* Timeout reached */
+		if (i == MAX_ATTEMPTS)
 			return;
 
+		/* They probably didn't recieve our last DATA */
 		if (pkt_blk_id(buffer) == block_seq - 1) {
 			goto retry;
 		} else if (pkt_blk_id(buffer) != block_seq) {
@@ -130,13 +143,13 @@ retry:
 
 		++block_seq;
 
+		/* Finished reading file */
 		if (fread < MAX_DATA_SIZE)
 			return;
 	}
 
-	if (fread == -1) {
+	if (fread == -1)
 		send_error(sock, 0, "Unknown I/O error.");
-	}
 }
 
 static void handle_connection(int sock, char *buffer)
@@ -151,6 +164,7 @@ static void handle_connection(int sock, char *buffer)
 	}
 
 	if (strcmp(pkt_mode(buffer), "octet") != 0) {
+		printf("TRIP\n");
 		send_error(sock, 4, "Illegal TFTP operation.");
 		return;
 	}
@@ -192,73 +206,7 @@ int main(int argc, char *argv[])
 			continue;
 
 		handle_connection(sock, buffer);
-/*
-		switch (pkt_op(buffer)) {
-		case PKT_RRQ:
-			if (strcmp(pkt_mode(buffer), "octet") != 0) {
-				send_error(sock, 4, "Illegal TFTP operation.");
-				goto error;
-			}
 
-			if (!validate_filename(pkt_filename(buffer))) {
-				send_error(sock, 1, "File not found.");
-				goto error;
-			}
-
-			fd = find_file(pkt_filename(buffer));
-			if (fd == -1) {
-				send_error(sock, 1, "File not found.");
-				goto error;
-			}
-
-			break;
-		case PKT_WRQ:
-			send_error(sock, 2, "Access violation.");
-			goto error;
-		default:
-			goto error;
-		}
-
-		char data[MAX_DATA_SIZE];
-		ssize_t fread;
-		uint16_t block_seq = 1;
-
-		while ((fread = read(fd, data, sizeof data)) > 0) {
-retry:
-			send_data(sock, block_seq, data, fread);
-
-			nread = recv(sock, buffer, sizeof buffer, 0);
-			if (nread == -1) {
-				perror("nread");
-				goto end;
-			}
-
-			switch (pkt_op(buffer)) {
-			case PKT_ACK:
-				;
-				uint16_t block_id = pkt_blk_id(buffer);
-				if (block_id == block_seq) {
-					++block_seq;
-				} else if (block_id == block_seq - 1) {
-					goto retry;
-				} else {
-					goto end;
-				}
-
-				break;
-			default:
-				printf("Invalid packet type\n");
-				continue;
-			}
-
-			if (fread < MAX_DATA_SIZE)
-				break;
-		}
-
-end:
-		close(fd);
-
-error:*/
 		disconnect(sock);
 	}
 
