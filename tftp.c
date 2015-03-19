@@ -25,6 +25,11 @@ static int wait_for_data(int sock, char *buffer, ssize_t *nread)
 		return (errno = EAGAIN);
 	}
 
+	if (pkt_op(buffer) == PKT_ERROR) {
+		fprintf(stderr, "error: %s\n", pkt_err_msg(buffer));
+		return (errno = ECONNABORTED);
+	}
+
 	if (pkt_op(buffer) != PKT_DATA)
 		return (errno = EAGAIN);
 
@@ -78,6 +83,62 @@ static int download_file(int sock, int fd)
 	return EXIT_SUCCESS;
 }
 
+static int request_file(const char *srv_addr, const char *srv_port, const char *file)
+{
+	int sock;
+	struct sockaddr_storage addr = {0};
+	socklen_t addr_len = sizeof addr;
+	char buffer[PKT_SIZE];
+
+	/* Connect to server's hosting port */
+	sock = open_socket(srv_addr, srv_port, AF_UNSPEC, 0, connect);
+	if (sock == -1)
+		return -1;
+
+	send_read(sock, file);
+
+	if (getsockname(sock, (struct sockaddr *)&addr, &addr_len) == -1) {
+		perror("getsockname");
+		goto error;
+	}
+
+	disconnect(sock);
+
+	/* Listen on local port for server's reply */
+	if (bind(sock, (struct sockaddr *)&addr, addr_len) == -1) {
+		perror("bind");
+		goto error;
+	};
+
+	if (!set_timeout(sock))
+		fprintf(stderr, "Warning: Socket may block indefinitely\n");
+
+	memset(&addr, 0, sizeof addr);
+	addr_len = sizeof addr;
+
+	if (recvfrom(sock, buffer, sizeof buffer, MSG_PEEK,
+			(struct sockaddr *)&addr, &addr_len) == -1) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+			fprintf(stderr, "recvfrom: Server did not reply\n");
+		else
+			perror("recvfrom");
+
+		goto error;
+	}
+
+	/* Connect with server's data transfer port */
+	if (connect(sock, (struct sockaddr *)&addr, addr_len) == -1) {
+		perror("connect");
+		goto error;
+	}
+
+	return sock;
+
+error:
+	close(sock);
+	return -1;
+}
+
 static void parse_args(int argc, char *argv[],
 		const char **srv_addr,
 		const char **srv_port,
@@ -126,25 +187,22 @@ int main(int argc, char *argv[])
 
 	parse_args(argc, argv, &srv_addr, &srv_port, &srv_file, &local_file);
 
-	sock = open_socket(srv_addr, srv_port, AF_UNSPEC, 0, connect);
-	if (sock == -1)
-		return EXIT_FAILURE;
-
-	if (!set_timeout(sock))
-		goto error_sock;
-
 	fd = creat(local_file, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
 	if (fd == -1) {
 		perror("creat");
-		goto error_sock;
+		return EXIT_FAILURE;
 	}
 
-	send_read(sock, srv_file);
+	sock = request_file(srv_addr, srv_port, srv_file);
+	if (sock == -1)
+		goto error_sock;
+
 	ret = download_file(sock, fd);
 
-	close(fd);
-error_sock:
 	close(sock);
+	
+error_sock:
+	close(fd);
 
 	return ret;
 }

@@ -55,40 +55,35 @@ static int find_file(const char *filename)
 	return fd;
 }
 
-static bool wait_for_connection(int sock, char *buffer)
+static int wait_for_connection(int sock, char *buffer)
 {
+	int client_sock;
 	struct sockaddr_storage addr = {0};
 	socklen_t addr_len = sizeof addr;
-
-	if (!remove_timeout(sock))
-		return false;
 
 	memset(buffer, 0, PKT_SIZE);
 
 	if (recvfrom(sock, buffer, PKT_SIZE, 0,
 			(struct sockaddr *)&addr, &addr_len) == -1) {
 		perror("recvfrom");
-		return false;
+		return -1;
 	}
 
-	if (connect(sock, (struct sockaddr *)&addr, addr_len) == -1) {
+	client_sock = socket(addr.ss_family, SOCK_DGRAM, 0);
+	if (client_sock == -1) {
+		perror("socket");
+		return -1;
+	}
+
+	if (connect(client_sock, (struct sockaddr *)&addr, addr_len) == -1) {
 		perror("connect");
-		return false;
+		return -1;
 	}
 
-	if (!set_timeout(sock))
+	if (!set_timeout(client_sock))
 		fprintf(stderr, "Warning: Socket may block indefinitely\n");
 
-	return true;
-}
-
-static void disconnect(int sock)
-{
-	struct sockaddr_in6 addr = {0};
-	addr.sin6_family = AF_UNSPEC;
-
-	if (connect(sock, (struct sockaddr *)&addr, sizeof addr) == -1)
-		perror("disconnect");
+	return client_sock;
 }
 
 static int wait_for_ack(int sock, char *buffer)
@@ -200,17 +195,19 @@ int main(int argc, char *argv[])
 
 	bool running = true;
 	while (running) {
+		int client_sock;
 		char buffer[PKT_SIZE];
 
-		if (!wait_for_connection(sock, buffer))
+		client_sock = wait_for_connection(sock, buffer);
+		if (client_sock == -1)
 			continue;
 
 		if (strncmp(buffer, "quit", 4) == 0)
 			running = false;
 
-		handle_connection(sock, buffer);
+		handle_connection(client_sock, buffer);
 
-		disconnect(sock);
+		close(client_sock);
 	}
 
 	close(sock);

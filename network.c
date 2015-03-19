@@ -37,7 +37,7 @@ int open_socket(const char *addr,
 		if (sock == -1)
 			continue;
 
-		if (fn(sock, p->ai_addr, p->ai_addrlen) != -1)
+		if (fn == NULL || fn(sock, p->ai_addr, p->ai_addrlen) != -1)
 			break;
 
 		close(sock);
@@ -75,3 +75,11 @@ bool remove_timeout(int sock)
 	return true;
 }
 
+void disconnect(int sock)
+{
+	struct sockaddr_in6 addr = {0};
+	addr.sin6_family = AF_UNSPEC;
+
+	if (connect(sock, (struct sockaddr *)&addr, sizeof addr) == -1)
+		perror("disconnect");
+}

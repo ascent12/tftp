@@ -13,4 +13,6 @@ int open_socket(const char *addr,
 bool set_timeout(int sock);
 bool remove_timeout(int sock);
 
+void disconnect(int sock);
+
 #endif
