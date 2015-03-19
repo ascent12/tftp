@@ -12,20 +12,41 @@
 #include "network.h"
 #include "protocol.h"
 
+static int wait_for_data(int sock, char *buffer, ssize_t *nread)
+{
+	*nread = recv(sock, buffer, PKT_SIZE, 0);
+	if (*nread == -1) {
+		if (errno != EAGAIN && errno != EWOULDBLOCK) {
+			int errsav = errno;
+			perror("recv");
+			return (errno = errsav);
+		}
+
+		return (errno = EAGAIN);
+	}
+
+	if (pkt_op(buffer) != PKT_DATA)
+		return (errno = EAGAIN);
+
+	return (errno = 0);
+}
+
 static int download_file(int sock, int fd)
 {
 	char buffer[PKT_SIZE];
 	ssize_t nread;
 	uint16_t block_seq = 1;
+	int i = 0;
 
-	while ((nread = recv(sock, buffer, sizeof buffer, 0)) > 0) {
-		if (pkt_op(buffer) == PKT_ERROR) {
-			fprintf(stderr, "error: %s\n", pkt_err_msg(buffer));
-			return EXIT_FAILURE;
-		/* Silently discard all other packets */
-		} else if (pkt_op(buffer) != PKT_DATA) {
+	while (i++ < MAX_ATTEMPTS) {
+		wait_for_data(sock, buffer, &nread);
+
+		if (errno == EAGAIN)
 			continue;
-		}
+		else if (errno != 0)
+			break;
+
+		i = 0;
 
 		/* They probably didn't recieve our last ACK */
 		if (pkt_blk_id(buffer) == block_seq - 1) {
@@ -48,14 +69,11 @@ static int download_file(int sock, int fd)
 			break;
 	}
 
-	if (nread == -1) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
-			fprintf(stderr, "recv: Timeout reached\n");
-		else
-			perror("recv");
+	if (errno == EAGAIN)
+		fprintf(stderr, "recv: Timed out\n");
 
+	if (errno != 0)
 		return EXIT_FAILURE;
-	}
 
 	return EXIT_SUCCESS;
 }

@@ -91,21 +91,24 @@ static void disconnect(int sock)
 		perror("disconnect");
 }
 
-static bool wait_for_ack(int sock, char *buffer)
+static int wait_for_ack(int sock, char *buffer)
 {
 	if (recv(sock, buffer, PKT_SIZE, 0) == -1) {
-		if (errno != EAGAIN && errno != EWOULDBLOCK)
+		if (errno != EAGAIN && errno != EWOULDBLOCK) {
+			int errsav = errno;
 			perror("recv");
+			return (errno = errsav);
+		}
 
-		return false;
+		return (errno = EAGAIN);
 	}
 
 	if (pkt_op(buffer) != PKT_ACK) {
 		send_error(sock, 4, "Illegal TFTP operation.");
-		return false;
+		return (errno = EAGAIN);
 	}
 
-	return true;
+	return (errno = 0);
 }
 
 static void transfer_file(int sock, int fd, char *buffer)
@@ -121,10 +124,13 @@ retry:
 		i = 0;
 		do
 			send_data(sock, block_seq, data, fread);
-		while (!wait_for_ack(sock, buffer) && i++ < MAX_ATTEMPTS);
+		while (wait_for_ack(sock, buffer) == EAGAIN && i++ < MAX_ATTEMPTS);
 
-		/* Timeout reached */
-		if (i == MAX_ATTEMPTS)
+		if (errno == EAGAIN)
+			fprintf(stderr, "recv: Timed out\n");
+
+		/* Timeout reached or connection failed */
+		if (errno != 0)
 			return;
 
 		/* They probably didn't recieve our last DATA */
@@ -192,11 +198,15 @@ int main(int argc, char *argv[])
 	if (sock == -1)
 		return EXIT_FAILURE;
 
-	while (1) {
+	bool running = true;
+	while (running) {
 		char buffer[PKT_SIZE];
 
 		if (!wait_for_connection(sock, buffer))
 			continue;
+
+		if (strncmp(buffer, "quit", 4) == 0)
+			running = false;
 
 		handle_connection(sock, buffer);
 
