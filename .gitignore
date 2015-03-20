@@ -1,5 +1,5 @@
 *.o
-tftp
-tftpd
-
+Tftp
+Tftpd
+tftp/*
 *.swp

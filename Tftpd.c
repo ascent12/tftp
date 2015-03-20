@@ -29,7 +29,7 @@ static int find_file(const char *filename)
 	DIR *tftp;
 	struct dirent *d = NULL;
 
-	tftp = opendir("./Tftp");
+	tftp = opendir("./tftp");
 	if (tftp == NULL) {
 		perror("opendir");
 		return -1;

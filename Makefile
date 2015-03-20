@@ -4,11 +4,11 @@ LDFLAGS +=
 
 .PHONY: all clean
 
-all: tftp tftpd
+all: Tftp Tftpd
 
-tftp: tftp.o network.o protocol.o
+Tftp: Tftp.o network.o protocol.o
 
-tftpd: tftpd.o network.o protocol.o
+Tftpd: Tftpd.o network.o protocol.o
 
 clean: 
-	$(RM) tftp tftpd $(wildcard *.o)
+	$(RM) Tftp Tftpd $(wildcard *.o)
