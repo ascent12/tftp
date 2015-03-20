@@ -29,7 +29,7 @@ int         pkt_op(const char *buffer);
 uint16_t    pkt_blk_id(const char *buffer);
 const char *pkt_data(const char *buffer);
 const char *pkt_filename(const char *buffer);
-const char *pkt_mode(const char *buffer);
+char       *pkt_mode(char *buffer);
 #define     pkt_err_code pkt_blk_id
 #define     pkt_err_msg pkt_data
 

@@ -4,6 +4,7 @@
  */
 
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -110,12 +111,15 @@ const char *pkt_filename(const char *buffer)
 	return buffer + 2;
 }
 
-const char *pkt_mode(const char *buffer)
+char *pkt_mode(char *buffer)
 {
 	/* Skip the opcode */
 	buffer += 2;
 
 	while (*buffer++ != '\0');
+
+	for (char *ptr = buffer; *ptr != '\0'; ++ptr)
+		*ptr = tolower(*ptr);
 
 	return buffer;
 }
