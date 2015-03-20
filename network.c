@@ -1,3 +1,8 @@
+/*
+ * Scott Anderson
+ * #1240847
+ */
+
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>

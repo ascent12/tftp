@@ -1,3 +1,8 @@
+/*
+ * Scott Anderson
+ * #1240847
+ */
+
 #ifndef NETWORK_H
 #define NETWORK_H
 

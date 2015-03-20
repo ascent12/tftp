@@ -1,3 +1,8 @@
+/*
+ * Scott Anderson
+ * #1240847
+ */
+
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 

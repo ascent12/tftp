@@ -1,3 +1,8 @@
+/*
+ * Scott Anderson
+ * #1240847
+ */
+
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
