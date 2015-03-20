@@ -17,7 +17,7 @@
 
 void send_read(int sock, const char *filename)
 {
-	char buffer[PKT_SIZE] = {0,1};
+	char buffer[PKT_SIZE] = { 0, 1 };
 	size_t len = 2;
 
 	len += sprintf(buffer + len, "%.503s", filename);
@@ -32,7 +32,7 @@ void send_read(int sock, const char *filename)
 
 void send_ack(int sock, uint16_t block_id)
 {
-	char buffer[4] = {0,4};
+	char buffer[4] = { 0, 4 };
 
 	block_id = htons(block_id);
 	memcpy(buffer + 2, &block_id, sizeof block_id);
@@ -43,7 +43,7 @@ void send_ack(int sock, uint16_t block_id)
 
 void send_error(int sock, uint16_t error_code, const char *error_msg)
 {
-	char buffer[PKT_SIZE] = {0,5};
+	char buffer[PKT_SIZE] = { 0, 5 };
 	size_t len = 4;
 
 	error_code = htons(error_code);
@@ -58,7 +58,7 @@ void send_error(int sock, uint16_t error_code, const char *error_msg)
 
 void send_data(int sock, uint16_t block_id, const char *data, size_t data_len)
 {
-	char buffer[PKT_SIZE] = {0,3};
+	char buffer[PKT_SIZE] = { 0, 3 };
 
 	block_id = htons(block_id);
 	memcpy(buffer + 2, &block_id, sizeof block_id);
@@ -95,7 +95,7 @@ int pkt_op(const char *buffer)
 uint16_t pkt_blk_id(const char *buffer)
 {
 	uint16_t block_id;
-	
+
 	memcpy(&block_id, buffer + 2, sizeof block_id);
 
 	return ntohs(block_id);
@@ -116,7 +116,7 @@ char *pkt_mode(char *buffer)
 	/* Skip the opcode */
 	buffer += 2;
 
-	while (*buffer++ != '\0');
+	while (*buffer++ != '\0') ;
 
 	for (char *ptr = buffer; *ptr != '\0'; ++ptr)
 		*ptr = tolower(*ptr);

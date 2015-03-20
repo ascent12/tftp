@@ -43,7 +43,7 @@ static int find_file(const char *filename)
 	while ((errno = 0) || (d = readdir(tftp)) != NULL) {
 		if (strcmp(d->d_name, filename) != 0)
 			continue;
-		
+
 		fd = openat(dirfd(tftp), d->d_name, O_RDONLY);
 		if (fd == -1)
 			perror("openat");
@@ -63,13 +63,13 @@ static int find_file(const char *filename)
 static int wait_for_connection(int sock, char *buffer)
 {
 	int client_sock;
-	struct sockaddr_storage addr = {0};
+	struct sockaddr_storage addr = { 0 };
 	socklen_t addr_len = sizeof addr;
 
 	memset(buffer, 0, PKT_SIZE);
 
 	if (recvfrom(sock, buffer, PKT_SIZE, 0,
-			(struct sockaddr *)&addr, &addr_len) == -1) {
+		     (struct sockaddr *)&addr, &addr_len) == -1) {
 		perror("recvfrom");
 		return -1;
 	}
@@ -120,11 +120,12 @@ static void transfer_file(int sock, int fd, char *buffer)
 	while ((fread = read(fd, data, sizeof data)) >= 0) {
 		int i;
 
-retry:
+ retry:
 		i = 0;
 		do
 			send_data(sock, block_seq, data, fread);
-		while (wait_for_ack(sock, buffer) == EAGAIN && i++ < MAX_ATTEMPTS);
+		while (wait_for_ack(sock, buffer) == EAGAIN
+		       && i++ < MAX_ATTEMPTS);
 
 		if (errno == EAGAIN)
 			fprintf(stderr, "recv: Timed out\n");
@@ -199,7 +200,7 @@ int main(int argc, char *argv[])
 	}
 
 	sock = open_socket(NULL, argc == 2 ? argv[1] : "69",
-			AF_INET6, AI_PASSIVE | AI_V4MAPPED, bind);
+			   AF_INET6, AI_PASSIVE | AI_V4MAPPED, bind);
 	if (sock == -1)
 		return EXIT_FAILURE;
 

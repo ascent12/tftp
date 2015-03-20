@@ -22,7 +22,7 @@
 #include "network.h"
 #include "protocol.h"
 
-static int wait_for_data(int sock, char *buffer, ssize_t *nread)
+static int wait_for_data(int sock, char *buffer, ssize_t * nread)
 {
 	*nread = recv(sock, buffer, PKT_SIZE, 0);
 	if (*nread == -1) {
@@ -93,10 +93,11 @@ static int download_file(int sock, int fd)
 	return EXIT_SUCCESS;
 }
 
-static int request_file(const char *srv_addr, const char *srv_port, const char *file)
+static int request_file(const char *srv_addr, const char *srv_port,
+			const char *file)
 {
 	int sock;
-	struct sockaddr_storage addr = {0};
+	struct sockaddr_storage addr = { 0 };
 	socklen_t addr_len = sizeof addr;
 	char buffer[PKT_SIZE];
 
@@ -127,7 +128,7 @@ static int request_file(const char *srv_addr, const char *srv_port, const char *
 	addr_len = sizeof addr;
 
 	if (recvfrom(sock, buffer, sizeof buffer, MSG_PEEK,
-			(struct sockaddr *)&addr, &addr_len) == -1) {
+		     (struct sockaddr *)&addr, &addr_len) == -1) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK)
 			fprintf(stderr, "recvfrom: Server did not reply\n");
 		else
@@ -149,21 +150,20 @@ static int request_file(const char *srv_addr, const char *srv_port, const char *
 
 	return sock;
 
-error:
+ error:
 	close(sock);
 	return -1;
 }
 
 static void parse_args(int argc, char *argv[],
-		const char **srv_addr,
-		const char **srv_port,
-		const char **srv_file,
-		const char **local_file)
+		       const char **srv_addr,
+		       const char **srv_port,
+		       const char **srv_file, const char **local_file)
 {
 	if (argc < 3 || argc > 4) {
 		fprintf(stderr, "Invalid number of options\n"
-				"Usage: %s server-address[:port] file [local-file]\n",
-				argv[0]);
+			"Usage: %s server-address[:port] file [local-file]\n",
+			argv[0]);
 		exit(EXIT_FAILURE);;
 	}
 
@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
 	if (sock == -1)
 		return EXIT_FAILURE;
 
-	fd = creat(local_file, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+	fd = creat(local_file, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	if (fd == -1) {
 		perror("creat");
 		goto error_file;
@@ -215,8 +215,8 @@ int main(int argc, char *argv[])
 	ret = download_file(sock, fd);
 
 	close(fd);
-	
-error_file:
+
+ error_file:
 	close(sock);
 
 	return ret;

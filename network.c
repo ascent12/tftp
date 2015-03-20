@@ -19,11 +19,11 @@
 int open_socket(const char *addr,
 		const char *port,
 		int family, int flags,
-		int (*fn)(int sockfd, const struct sockaddr *addr,
-			socklen_t addrlen))
+		int (*fn) (int sockfd, const struct sockaddr * addr,
+			   socklen_t addrlen))
 {
 	int sock = -1;
-	struct addrinfo hints = {0};
+	struct addrinfo hints = { 0 };
 	struct addrinfo *res;
 	struct addrinfo *p;
 
@@ -58,7 +58,8 @@ int open_socket(const char *addr,
 	return sock;
 }
 
-static const struct timeval timeout = { .tv_sec = 5, .tv_usec = 0};
+static const struct timeval timeout = {.tv_sec = 5,.tv_usec = 0 };
+
 bool set_timeout(int sock)
 {
 	if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout)) {
@@ -69,10 +70,12 @@ bool set_timeout(int sock)
 	return true;
 }
 
-static const struct timeval no_timeout = { .tv_sec = 0, .tv_usec = 0};
+static const struct timeval no_timeout = {.tv_sec = 0,.tv_usec = 0 };
+
 bool remove_timeout(int sock)
 {
-	if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &no_timeout, sizeof no_timeout)) {
+	if (setsockopt
+	    (sock, SOL_SOCKET, SO_RCVTIMEO, &no_timeout, sizeof no_timeout)) {
 		perror("setsockopt");
 		return false;
 	}
@@ -82,7 +85,7 @@ bool remove_timeout(int sock)
 
 void disconnect(int sock)
 {
-	struct sockaddr_in6 addr = {0};
+	struct sockaddr_in6 addr = { 0 };
 	addr.sin6_family = AF_UNSPEC;
 
 	if (connect(sock, (struct sockaddr *)&addr, sizeof addr) == -1)
