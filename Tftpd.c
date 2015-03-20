@@ -34,7 +34,7 @@ static int find_file(const char *filename)
 	DIR *tftp;
 	struct dirent *d = NULL;
 
-	tftp = opendir("./tftp");
+	tftp = opendir("./tftp/");
 	if (tftp == NULL) {
 		perror("opendir");
 		return -1;
@@ -190,6 +190,11 @@ int main(int argc, char *argv[])
 
 	if (argc > 2) {
 		fprintf(stderr, "Usage: %s [port]\n", argv[0]);
+		return EXIT_FAILURE;
+	}
+
+	if (access("./tftp/", F_OK) == -1) {
+		perror("./tftp");
 		return EXIT_FAILURE;
 	}
 
