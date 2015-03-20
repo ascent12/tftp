@@ -136,6 +136,11 @@ static int request_file(const char *srv_addr, const char *srv_port, const char *
 		goto error;
 	}
 
+	if (pkt_op(buffer) == PKT_ERROR) {
+		fprintf(stderr, "error: %s\n", pkt_err_msg(buffer));
+		goto error;
+	}
+
 	/* Connect with server's data transfer port */
 	if (connect(sock, (struct sockaddr *)&addr, addr_len) == -1) {
 		perror("connect");
@@ -197,22 +202,22 @@ int main(int argc, char *argv[])
 
 	parse_args(argc, argv, &srv_addr, &srv_port, &srv_file, &local_file);
 
+	sock = request_file(srv_addr, srv_port, srv_file);
+	if (sock == -1)
+		return EXIT_FAILURE;
+
 	fd = creat(local_file, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
 	if (fd == -1) {
 		perror("creat");
-		return EXIT_FAILURE;
+		goto error_file;
 	}
-
-	sock = request_file(srv_addr, srv_port, srv_file);
-	if (sock == -1)
-		goto error_sock;
 
 	ret = download_file(sock, fd);
 
-	close(sock);
-	
-error_sock:
 	close(fd);
+	
+error_file:
+	close(sock);
 
 	return ret;
 }
