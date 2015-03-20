@@ -1,0 +1,7 @@
+This submission is in C, obviously.
+
+`make` will compile both Tftp and Tftpd and `make Tftp` and `make Tftpd` to
+compile them individually.
+
+I've tested it with GNU Make 4.1 and GCC 4.9.2, but I assume any C99 compliant
+compiler will work.
