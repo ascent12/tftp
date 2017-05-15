@@ -3,11 +3,6 @@
  * #1240847
  */
 
-/*
- * Scott Anderson
- * #1240847
- */
-
 #include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
